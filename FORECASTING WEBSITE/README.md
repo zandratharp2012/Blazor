@@ -30,7 +30,13 @@ To run the application locally:
 git clone https://github.com/zandratharp2012/Blazor.git
 
 cd Blazor
-
+```
 - Follow setup instructions in the FORECASTING WEBSITE folder
 - Update appsettings file with your database connections
+
+## Project Details Screenshot
+
+<div align="center">
+  <img src="website_projectdetails.PNG" width="600"/>
+</div>
 
