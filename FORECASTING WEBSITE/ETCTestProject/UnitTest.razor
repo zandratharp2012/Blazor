@@ -1,0 +1,360 @@
+﻿@using ETC.TaskListService
+@using Moq
+using ETCDAL.Services;
+@inherits BunitContext
+
+@code {
+
+
+
+    private void SetupAuthorization(string user)
+    {
+        var authContext = this.AddAuthorization();
+        authContext.SetAuthorized(user);
+    }
+
+
+    [Fact]
+    public void PAListRendersCorrectly()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        mockETCData.Setup(data => data.GetPeriods("ZTharp"))
+                   .ReturnsAsync(new List<ETCDAL.Models.PeriodsModel>
+                       {
+                       new ETCDAL.Models.PeriodsModel { PeriodID = 1, PeriodName = "January", Status = "Active", PeriodMonthName = "January" }
+                       });
+
+        mockETCData.Setup(data => data.GetPermissions("ZTharp"))
+                        .ReturnsAsync(new List<ETCDAL.Models.PermissionModel>
+                            {
+                       new ETCDAL.Models.PermissionModel { Permission = "PA Admin" }
+                            });
+
+        Services.AddSingleton(mockETCData.Object);
+
+        // Act
+        var cut = Render<ETC.Pages.PAList>();
+        // Assert
+        var headerContainer = cut.Find(".header-container");
+        headerContainer.MarkupMatches(@"
+            <div class=""header-container"">
+                <h1 style=""color: #0B8DBB;"" id=""hdrtitle"">PERIOD SETTINGS</h1>
+                <h4 style=""color: #0B8DBB;"" id=""hdruser"">GNET\ZTharp</h4>
+            </div>
+        ");
+    }
+
+    [Fact]
+    public void PAListRendersCorrectlyNonAdmin()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        mockETCData.Setup(data => data.GetPermissions("ZTharp"))
+                   .ReturnsAsync(new List<ETCDAL.Models.PermissionModel>
+                                {
+                       new ETCDAL.Models.PermissionModel { Permission = "User" }
+                                });
+
+        Services.AddSingleton(mockETCData.Object);
+
+        // Act
+        var cut = Render<ETC.Pages.PAList>();
+        // Assert
+        var headerContainer = cut.Find(".alert-warning");
+        headerContainer.MarkupMatches(@"
+            <div style=""font-size:22px;text-align:center;""class=""alert alert-warning"">
+        <strong>You do not have permission to view this page.<br /> Please contact your system administrator.</strong></div>
+        ");
+    }
+
+    // [Fact] void TaskListIsAmericanProjectReturnsTrueforNA()
+    // {
+    //     SetupAuthorization("GNET\\ZTharp");
+    //     var mockETCData = new Mock<ETCDAL.IETCData>();
+    // }
+
+
+    [Fact]
+    public void TaskListIsAmericanProjectReturnsTrueForNA()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        Services.AddSingleton(mockETCData.Object);
+
+        var projectHeader = new ETCDAL.Models.ProjectHeaderModel { MSO = "NA12345" };
+
+        var taskListService = new TaskListService();
+
+        // Act
+        bool result = taskListService.IsAmericanProject(projectHeader);
+
+        // Assert
+        Assert.True(result, "Expected IsAmericanProject to return true for MSO starting with 'NA'.");
+    }
+
+    [Fact]
+    public void TaskListIsAmericanProjectReturnsTrueForLA()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        Services.AddSingleton(mockETCData.Object);
+
+        var projectHeader = new ETCDAL.Models.ProjectHeaderModel { MSO = "LA98765" };
+
+        var taskListService = new TaskListService();
+
+        // Act
+        bool result = taskListService.IsAmericanProject(projectHeader);
+
+        // Assert
+        Assert.True(result, "Expected IsAmericanProject to return true for MSO starting with 'LA'.");
+    }
+
+    [Fact]
+    public async Task ValidateSubmissionAsync_TriggersApproval_WhenBudgetThresholdExceeded()
+    {
+        // Arrange
+        var mockJsRuntime = new Mock<IJSRuntime>();
+        var service = new TaskListService();
+
+        var projectHeader = new ETCDAL.Models.ProjectHeaderModel
+            {
+                MSO = "NA12345",
+            };
+        var budgetThreshold = 30000f; // Exceeds threshold
+        var calculatedMargin = 12m; // Simulated margin value
+
+        // Mock the JavaScript confirmation dialog
+        mockJsRuntime
+            .Setup(js => js.InvokeAsync<bool>("confirm", It.IsAny<object[]>()))
+            .ReturnsAsync(true); // Simulates user clicking "OK"
+
+        // Act
+        var result = await service.ValidateSubmissionAsync(projectHeader, budgetThreshold, calculatedMargin, mockJsRuntime.Object);
+
+        // Assert
+        Assert.True(result.IsConfirmed);
+        Assert.True(result.SubmitToApproval);
+        mockJsRuntime.Verify(js => js.InvokeAsync<bool>("confirm", It.IsAny<object[]>()), Times.Once);
+    }
+
+
+    [Fact]
+    public void TaskListRendersCorrectlyWhenPeriodClosed()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        Services.AddSingleton(mockETCData.Object);
+
+        int _RecordId = 1457;
+
+        mockETCData.Setup(data => data.GetPermissions("ZTharp"))
+                   .ReturnsAsync(new List<ETCDAL.Models.PermissionModel>
+                       {
+                       new ETCDAL.Models.PermissionModel { Permission = "User" }
+                       });
+
+        mockETCData.Setup(data => data.GetTaskList(_RecordId))
+                   .ReturnsAsync(new List<ETCDAL.Models.TaskModel>
+                       {
+                       new ETCDAL.Models.TaskModel {
+                           TaskName = "Small Project",
+                           TaskId = 12,
+                           TaskDetailId = 123,
+                           TaskNumber = "100.1",
+                           PeriodName = "FY25-P06",
+                           PeriodValue = 1500,
+                           ITDCost = 2500,
+                           SumBudgeted_Burdened_Cost = 0,
+                           Period_MonthName = "January"
+                       }
+                       });
+
+        mockETCData.Setup(data => data.GetManagerStructure("ZTharp"))
+       .ReturnsAsync(new List<ETCDAL.Models.ManagerModel>
+           {
+                       new ETCDAL.Models.ManagerModel {
+                           employee = "ZTharp",
+                           manager = "TestManager",
+                           mgr2 = "TestManager"
+
+                       }
+           });
+
+        mockETCData.Setup(data => data.GetUserRegions("ZTharp"))
+    .ReturnsAsync(new List<ETCDAL.Models.UserRegionsModel>
+               {
+                       new ETCDAL.Models.UserRegionsModel {
+                           ADUsername = "ZTharp",
+                           Region = "NA",
+                           RegionGroup = "NA"
+
+                       }
+               });
+
+
+
+
+
+
+        var UserList = new List<string?> { "ZTharp","ZTharp" };
+
+        var Region = new List<string?> { };
+
+        mockETCData.Setup(data => data.GetProjectHeader(_RecordId, false, false, UserList, Region, "FY25-P10"))
+       .ReturnsAsync(new List<ETCDAL.Models.ProjectHeaderModel>
+           {
+                       new ETCDAL.Models.ProjectHeaderModel {
+                           RecordId = _RecordId,
+                           PeriodName = "FY25-P04",
+                           PeriodMonthName = "DEC",
+                           ProjectManager = "Gurule, Felix",
+                           Status = "Pending",
+                           PlannedCompletionDate =  DateTime.Now,
+                           PeriodStatus = "Closed"
+
+                       }
+           });
+
+        mockETCData.Setup(data => data.GetTotalAvailableBudget(_RecordId))
+       .ReturnsAsync(new List<ETCDAL.Models.ProjectHeaderModel>
+           {
+                       new ETCDAL.Models.ProjectHeaderModel {
+                           RecordId = _RecordId,
+                           PeriodName = "FY25-P04",
+                           ProjectManager = "Gurule, Felix",
+                           Status = "Pending",
+                           Total_Avail_Budget = 50000
+
+                       }
+           });
+
+        var mockEmailSender = new Mock<ETC.IEmailSender>();
+        Services.AddSingleton(mockEmailSender.Object);
+
+        // Act
+        var cut = Render<ETC.Pages.TaskList>(parameters => parameters.Add(p => p.RecordId, _RecordId));
+
+
+
+        // Assert
+        var periodNameLabel = cut.Find("#period-name");
+        var periodMonthNameLabel = cut.Find("#period-month-name");
+        var statusSpan = cut.Find("#status-message");
+
+        Assert.Equal("FY25-P04", periodNameLabel.TextContent);
+        Assert.Equal("DEC", periodMonthNameLabel.TextContent);
+        Assert.Contains("THIS PERIOD HAS BEEN CLOSED", statusSpan.TextContent);
+
+    }
+
+    [Fact]
+    public void TaskListRendersCorrectlyWhenPeriodOpen()
+    {
+        // Arrange
+        SetupAuthorization("GNET\\ZTharp");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        Services.AddSingleton(mockETCData.Object);
+
+        int _RecordId = 1457;
+
+        mockETCData.Setup(data => data.GetPermissions("ZTharp"))
+                   .ReturnsAsync(new List<ETCDAL.Models.PermissionModel>
+                           {
+                       new ETCDAL.Models.PermissionModel { Permission = "User" }
+                           });
+
+        mockETCData.Setup(data => data.GetTaskList(_RecordId))
+                   .ReturnsAsync(new List<ETCDAL.Models.TaskModel>
+                           {
+                       new ETCDAL.Models.TaskModel {
+                           TaskName = "Small Project",
+                           TaskId = 12,
+                           TaskDetailId = 123,
+                           TaskNumber = "100.1",
+                           PeriodName = "FY25-P06",
+                           PeriodValue = 1500,
+                           ITDCost = 2500,
+                           SumBudgeted_Burdened_Cost = 0,
+                           Period_MonthName = "January"
+                       }
+                           });
+
+        mockETCData.Setup(data => data.GetManagerStructure("ZTharp"))
+       .ReturnsAsync(new List<ETCDAL.Models.ManagerModel>
+               {
+                       new ETCDAL.Models.ManagerModel {
+                           employee = "ZTharp",
+                           manager = "TestManager",
+                           mgr2 = "TestManager"
+
+                       }
+               });
+
+        var UserList = new List<string?> { "ZTharp", "ZTharp" };
+        var Region = new List<string?> { };
+
+        mockETCData.Setup(data => data.GetProjectHeader(_RecordId, false,false, UserList, Region, ""))
+       .ReturnsAsync(new List<ETCDAL.Models.ProjectHeaderModel>
+               {
+                       new ETCDAL.Models.ProjectHeaderModel {
+                           RecordId = _RecordId,
+                           PeriodName = "FY25-P04",
+                           PeriodMonthName = "DEC",
+                           ProjectManager = "Gurule, Felix",
+                           Status = "Pending",
+                           PlannedCompletionDate =  DateTime.Now,
+                           PeriodStatus = "Open"
+
+                       }
+               });
+
+        mockETCData.Setup(data => data.GetTotalAvailableBudget(_RecordId))
+       .ReturnsAsync(new List<ETCDAL.Models.ProjectHeaderModel>
+               {
+                       new ETCDAL.Models.ProjectHeaderModel {
+                           RecordId = _RecordId,
+                           PeriodName = "FY25-P04",
+                           ProjectManager = "Gurule, Felix",
+                           Status = "Pending",
+                           Total_Avail_Budget = 50000
+
+                       }
+               });
+
+        var mockEmailSender = new Mock<ETC.IEmailSender>();
+        Services.AddSingleton(mockEmailSender.Object);
+
+        // Act
+        var cut = Render<ETC.Pages.TaskList>(parameters => parameters.Add(p => p.RecordId, _RecordId));
+
+
+
+        // Assert
+        var periodNameLabel = cut.Find("#period-name");
+        var periodMonthNameLabel = cut.Find("#period-month-name");
+        var statusSpan = cut.Find("#status-message");
+
+        Assert.Equal("FY25-P04", periodNameLabel.TextContent);
+        Assert.Equal("DEC", periodMonthNameLabel.TextContent);
+       // Assert.Contains("THIS PERIOD HAS BEEN CLOSED", statusSpan.TextContent);
+
+        // Check that the table has exactly one row
+        // var tableRows = cut.FindAll("tbody tr");
+        // Assert.Single(tableRows);
+    }
+
+   
+}

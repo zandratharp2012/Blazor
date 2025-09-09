@@ -1,0 +1,166 @@
+﻿@page "/PAList"
+
+@using ETCDAL;
+@using ETCDAL.Models;
+@using System.Security.Claims;
+
+@inject IETCData _db;
+@inject NavigationManager NavigationManager;
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JsRuntime;
+
+
+<div class="header-container">
+    <h1 style="color: #0B8DBB;" id="hdrtitle">PERIOD SETTINGS</h1>
+    <h4 style="color: #0B8DBB;" id="hdruser">GNET\@CurrentUser</h4>
+</div>
+<div id="messagecontainer" class="container">
+    @msg
+</div>
+<div class="container" style="margin-left:0px;">
+    <div class="row">
+        <div class="col-md-6">
+           
+            @if (Periods is null && Admin == true)
+            {
+                <p><em>Loading...</em></p>  <span class="spinner-border spinner-border-sm" role="status"></span>
+            }
+            else if (Admin == false)
+            {
+                <div style="font-size:22px;text-align:center;"class="alert alert-warning"><strong>You do not have permission to view this page.<br /> Please contact your system administrator.</strong></div>
+            }
+            else
+            {
+                
+                <table class="table table-striped table-bordered table-hover table-sm">
+                    <thead>
+                        <tr class="table-primary">
+                            <th id="perioddtltablehdr">ETC Period</th>
+                            <th id="perioddtltablehdr">Status</th>
+                            <th id="perioddtltablehdr">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results">
+                        @foreach (var period in Periods)
+                        {
+
+                            if (period.Status == "Closed")
+                            {
+                                <tr class="small">
+                                    <td style="font-weight:bold;">@period.PeriodName</td>
+                                    <td style="color:red;font-weight:bold;">@period.Status</td>
+
+                                    <td>
+                                        <button type="submit" @onclick="() => HandleSwitchChange(period)" id="openbutton"class="btn btn-outline-success" title="Click to OPEN the period">OPEN</button>
+                                    </td>
+                                </tr>
+                            }
+                            else{
+                            <tr class="small">
+                                    <td style="font-weight:bold;">@period.PeriodName (@period.PeriodMonthName)</td>
+                                    <td style="color:#32cd32;font-weight:bold;">@period.Status</td>
+                               
+                                <td>
+                                        <button type="submit" @onclick="() => HandleSwitchChange(period)" id="closebutton" class="btn btn-outline-success" title="Click to CLOSE the period">CLOSE</button>
+                                </td>
+                            </tr>
+                            }
+                        }
+                    </tbody>
+
+                </table>
+            }
+        </div>
+
+    </div>
+</div>
+
+<div id="approvalcontainer" class="container container-sm">
+    <button class="btn" id="approvalsectionbtn" @onclick="ToggleCollapse">Period History (click to expand or collapse)</button>
+    @if (!IsCollapsed && Admin == true)
+    {
+        <PAActivityCard PAPeriod="PAPeriod"></PAActivityCard>
+    }
+</div>
+
+
+
+
+@code {
+    private List<PeriodsModel> Periods;
+    private List<PermissionModel> Permissions;
+    private string? CurrentUser;
+    private bool Admin = false;
+    private bool IsCollapsed = true;
+    private string msg = "";
+ 
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUser = authState.User.Identity?.Name;
+
+        if (CurrentUser != null)
+        {
+            CurrentUser = CurrentUser.Replace(@"GNET\", "");
+            //CurrentUser = "MMeyer";
+            if (Permissions == null)
+            {
+                Permissions = await _db.GetPermissions(CurrentUser);
+                Admin = Permissions.Any(p => p.Permission == "PA Admin");
+            }
+        }
+
+        if (Periods == null)
+        {
+            // Check if the current user has Admin Permission, if so then do not limit the Admin list
+            if (Admin)
+            {
+                Periods = await _db.GetPeriods(CurrentUser); 
+            }     
+        }
+    }
+
+    private async Task HandleSwitchChange(PeriodsModel period)
+    {
+        if (period.Status == "Open")
+        { 
+            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to CLOSE period: " + period.PeriodName + "?");
+            if (confirmed)
+            {
+                await _db.UpdatePeriodStatusClose(period);
+                await _db.InsertPAActivityLog(period.PeriodName, "ETC Period Closed By " + CurrentUser + "");
+                period.Status = "Closed";
+                msg = "Period status succesfully updated to CLOSED.";
+            }
+            else
+            {
+                msg = "Request cancelled. No updates made.";
+            }
+        }
+        else
+        { 
+            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to OPEN period: " + period.PeriodName + "?");
+
+            if (confirmed)
+            {
+                await _db.UpdatePeriodStatusOpen(period);
+                await _db.InsertPAActivityLog(period.PeriodName, "ETC Period Opened By " + CurrentUser + "");
+                period.Status = "Open";
+                msg = "Period status succesfully updated to OPEN.";
+            }
+            else
+            {
+                msg = "Request cancelled. No updates made.";
+            }
+        }
+        StateHasChanged();
+     
+    }
+    private void ToggleCollapse()
+    {
+        IsCollapsed = !IsCollapsed;
+    }
+
+}

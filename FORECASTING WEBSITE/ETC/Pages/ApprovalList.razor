@@ -1,0 +1,338 @@
+﻿@page "/ApprovalList"
+
+@using ETCDAL;
+@using ETCDAL.Models;
+@using System.Security.Claims;
+
+
+@inject IETCData _db;
+@inject NavigationManager NavigationManager;
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<div class="header-container">
+    <h1 style="color: #0B8DBB;" id="hdrtitle">APPROVALS</h1>
+    <h4 style="color: #0B8DBB;" id="hdruser">GNET\@CurrentUser</h4>
+    @* <h4 id="hdruser2">@RecordCount</h4> *@
+</div>
+<div id="messagecontainer" class="container">
+</div>
+<div class="container">
+    <div class="container container" id="container">
+
+        <div class="container container" id="container" style="border-radius: 8px;border: 2px solid slategray; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);margin-bottom:15px;">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-6">
+
+                        <label for="txtName" class="col-6 col-form-label">Project Name:</label>
+                        <div class="col-6">
+                            <input type="text" class="form-control" @bind-value="@searchModel.PROJECT_NAME" />
+                        </div>
+                        <label for="txtName" class="col-6 col-form-label">Project Manager:</label>
+                        <div class="col-6">
+                            <select class="form-control" @bind="searchModel.ProjectManager">
+                                <option class="small" value="">Select</option>
+                                @foreach (string ProjectManager in OracleUserList)
+                                {
+
+                                    <option class="small" value="@ProjectManager">@ProjectManager</option>
+                                }
+
+                            </select>
+                        </div>
+
+                        <label for="txtName" class="col-3 col-form-label">Status</label>
+                        <div class="col-6">
+                            <select class="form-control" @bind="searchModel.Status">
+                                <option value="">Select</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approval Pending">Approval Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Pending - Approval Rejected">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+
+
+
+                        <label for="txtNumber" class="col-6 col-form-label">MSO:</label>
+                        <div class="col-6">
+                            <input type="text" class="form-control" @bind-value="@searchModel.MSO" />
+                        </div>
+
+                        <label for="txtName" class="col-3 col-form-label">Period Name</label>
+                        <div class="col-6">
+                            <select class="form-control" @bind="searchModel.PeriodName">
+                                <option class="small" value="">Select</option>
+                                @foreach (string PeriodName in PeriodsList)
+                                {
+
+                                    <option class="small" value="@PeriodName">@PeriodName</option>
+                                }
+                            </select>
+                        </div>
+                        <label for="txtName" class="col-3 col-form-label">Approver:</label>
+                        <div class="col-6">
+                            <input type="text" class="form-control" @bind-value="@searchModel.ApproversList" />
+                        </div>
+
+                        <label for="txtName" class="col-3 col-form-label"></label>
+                        <div class="col-6">
+                            <button id="summarysearchbutton" type="submit" @onclick="@SearchProjects" class="btn btn-outline-success" style="margin-top:10px">Search</button>
+                            <span class="badge" style="background-color: purple;">Record Count :@RecordCount</span>
+                        </div>
+
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+
+        @if (projectHeaders is null)
+        {
+            <p><em>Loading...</em></p>  <span class="spinner-border spinner-border-sm" role="status"></span>
+        }
+        else
+        {
+
+            <table class="table table-striped table-bordered table-hover table-sm">
+                <thead>
+                    <tr class="table-primary">
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("MSO"))">
+                            Project No
+                            <span class="fa @(SetSortIcon("MSO"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("PROJECT_NAME"))">
+                            Project Name
+                            <span class="fa @(SetSortIcon("PROJECT_NAME"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("CUSTOMER_NAME"))">
+                            Customer Name
+                            <span class="fa @(SetSortIcon("CUSTOMER_NAME"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("ProjectManager"))">
+                            Project Manager
+                            <span class="fa @(SetSortIcon("ProjectManager"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("PeriodName"))">
+                            Period Name
+                            <span class="fa @(SetSortIcon("PeriodName"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("Status"))">
+                            Status
+                            <span class="fa @(SetSortIcon("Status"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("ApproversList"))">
+                            Remaining Approvers
+                            <span class="fa @(SetSortIcon("ApproversList"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("Total_Avail_Budget"))">
+                            Total Available Budget
+                            <span class="fa @(SetSortIcon("Total_Avail_Budget"))"></span>
+                        </th>
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("TEC_SubmittedValue"))">
+                            Total Estimated Cost
+                            <span class="fa @(SetSortIcon("TEC_SubmittedValue"))"></span>
+                        </th>
+
+                        <th id="summarytablehdr" class="sort-th" @onclick="@(() => SortTable("BudgetUpdate"))">
+                            Budget Update Value
+                            <span class="fa @(SetSortIcon("BudgetUpdate"))"></span>
+                        </th>
+                        <th id ="summarytablehdr">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="results">
+                    @foreach (var project in FilteredProjects)
+                    {
+                        <tr class="small">
+                            <td>@project.MSO</td>
+                            <td>@project.PROJECT_NAME</td>
+                            <td>@project.CUSTOMER_NAME</td>
+                            <td>@project.ProjectManager</td>
+                            <td>@project.PeriodName (@project.PeriodMonthName)</td>
+
+                            <td>@project.Status</td>
+                            <td>@project.ApproversList</td>
+
+                            <td> @String.Format("{0:C2}", project.Total_Avail_Budget)</td>
+                            <td> @String.Format("{0:C2}", @project.TEC_SubmittedValue)</td>
+                            <td style="color: @(project.BudgetUpdate < 0  ? "red" : "inherit");">
+                                @String.Format("{0:C2}", project.BudgetUpdate)
+                            </td>
+
+                            <td><button type="button" class="btn btn-primary" id="detailsbutton" style="color: white;" @onclick="@(() => NavigateToProjectDetailPage(@project.RecordId))">Details</button></td>
+                        </tr>
+                    }
+                </tbody>
+
+            </table>
+        }
+
+
+    </div>
+</div>
+
+
+
+
+@code {
+    private List<ProjectHeaderModel> projectHeaders;
+    private List<PermissionModel> Permissions;
+    private List<UserRegionsModel> UserRegions;
+    private string? CurrentUser;
+    private bool Approver = false;
+    private bool Admin = false;
+    private bool ReadAll = false;
+    private ProjectHeaderModel searchModel = new ProjectHeaderModel();
+    private List<ProjectHeaderModel> FilteredProjects;
+    private bool isSortedAscending;
+    private string activeSortColumn;
+    private List<string?> PeriodsList = new List<string?>();
+    private List<string?> OracleUserList = new List<string?>();
+    private int RecordCount = 0;
+    private List<string?> RegionList = new List<string?>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUser = authState.User.Identity?.Name;
+        // CurrentUser = "JFLORES";
+
+        if (CurrentUser != null)
+        {
+            CurrentUser = CurrentUser.Replace(@"GNET\", "");
+            //CurrentUser = "JCuevas";
+            if (Permissions == null)
+            {
+
+                Permissions = await _db.GetPermissions(CurrentUser);
+                Approver = Permissions.Any(p => p.Permission == "Approver");
+                Admin = Permissions.Any(p => p.Permission == "Admin");
+                ReadAll = Permissions.Any(p => p.Permission == "ReadAll");
+            }
+        }
+
+        if (projectHeaders == null)
+        {
+            // Check if the current user has Approver Permission, if so then do not limit the Approver list 
+           
+            if (Admin || ReadAll)
+            {
+                UserRegions = await _db.GetUserRegions(CurrentUser);
+                RegionList = UserRegions
+                                 .Select(p => p.Region)
+                                 .Distinct()
+                                 .ToList();
+
+                RegionList.Add(CurrentUser);
+            }
+            string? ApproverUser = null;
+            if (!Approver && !ReadAll && !Admin)
+            {
+                ApproverUser = CurrentUser;
+            }
+
+            projectHeaders = await _db.GetApprovalHeaderData(null, ApproverUser, Admin, ReadAll, RegionList);
+            FilteredProjects = projectHeaders;
+            OracleUserList = projectHeaders
+                       .Where(p => p.ProjectManager != null)
+                        .Select(p => p.ProjectManager)
+                        .Distinct()
+                         .OrderBy(pm => pm)
+                          .ToList();
+            PeriodsList = projectHeaders
+                          .Select(p => p.PeriodName)
+                         .Distinct()
+                           .ToList();
+
+            RecordCount = projectHeaders.Count();
+        }
+    }
+
+
+    private void NavigateToProjectDetailPage(int? RecordId)
+    {
+        string uri = "TaskList/" + RecordId + "/approval";
+        NavigationManager.NavigateTo(uri);
+    }
+    private void SearchProjects()
+    {
+
+        if (projectHeaders != null)
+        {
+            FilteredProjects = projectHeaders
+              .Where(p =>
+                            (string.IsNullOrEmpty(searchModel.PROJECT_NAME) ||(!string.IsNullOrEmpty(p.PROJECT_NAME) &&
+                                    p.PROJECT_NAME.ToLower().Contains(searchModel.PROJECT_NAME.ToLower()))) 
+                                    &&
+                            (string.IsNullOrEmpty(searchModel.MSO) || p.MSO == (searchModel.MSO) || p.MSO.Contains(searchModel.MSO)) 
+                                    &&
+                            (string.IsNullOrEmpty(searchModel.PeriodName) || p.PeriodName == (searchModel.PeriodName)) 
+                            &&
+                            (string.IsNullOrEmpty(searchModel.ProjectManager) || p.ProjectManager == (searchModel.ProjectManager)) 
+                            &&
+                            (string.IsNullOrEmpty(searchModel.Status) || p.Status == (searchModel.Status))
+                            &&
+                             (string.IsNullOrEmpty(searchModel.ApproversList) || (!string.IsNullOrEmpty(p.ApproversList) &&
+                                    p.ApproversList.ToLower().Contains(searchModel.ApproversList.ToLower())))
+                )
+                .OrderBy(p => p.MSO)
+                .ToList();
+            RecordCount = FilteredProjects.Count();
+                StateHasChanged();
+
+        }
+
+
+    }
+    private void SortTable(string columnName)
+    {
+        if (columnName != activeSortColumn)
+        {
+            FilteredProjects = projectHeaders.OrderBy(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+            isSortedAscending = true;
+            activeSortColumn = columnName;
+        }
+
+        else
+        {
+            if (isSortedAscending)
+            {
+                FilteredProjects = projectHeaders.OrderByDescending(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+            }
+            else
+            {
+                FilteredProjects = projectHeaders.OrderBy(x => x.GetType().GetProperty(columnName).GetValue(x, null)).ToList();
+            }
+            isSortedAscending = !isSortedAscending;
+        }
+    }
+    private string SetSortIcon(string columnName)
+    {
+        if (activeSortColumn != columnName)
+        {
+            return string.Empty;
+        }
+        if (isSortedAscending)
+        {
+            return "fa-sort-up";
+        }
+        else
+        {
+            return "fa-sort-down";
+        }
+    }
+
+}

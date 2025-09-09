@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34511.84
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ETC", "ETC\ETC.csproj", "{B01F24E5-005B-49F7-9914-448439751487}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ETCDAL", "ETCDAL\ETCDAL.csproj", "{A24B4612-519B-49EF-8B16-DA5C69CAFE3C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ETCTestProject", "ETCTestProject\ETCTestProject.csproj", "{39394FC5-A801-497D-BF73-CC3E47BF82E1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B01F24E5-005B-49F7-9914-448439751487}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B01F24E5-005B-49F7-9914-448439751487}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B01F24E5-005B-49F7-9914-448439751487}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B01F24E5-005B-49F7-9914-448439751487}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A24B4612-519B-49EF-8B16-DA5C69CAFE3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A24B4612-519B-49EF-8B16-DA5C69CAFE3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A24B4612-519B-49EF-8B16-DA5C69CAFE3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A24B4612-519B-49EF-8B16-DA5C69CAFE3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39394FC5-A801-497D-BF73-CC3E47BF82E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39394FC5-A801-497D-BF73-CC3E47BF82E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39394FC5-A801-497D-BF73-CC3E47BF82E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39394FC5-A801-497D-BF73-CC3E47BF82E1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D8503CAA-CD8F-4552-9FCD-8559FDF2992D}
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 4
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = http://usp-customapps:8080/tfs/misccollection
+		SccProjectUniqueName0 = ETCDAL\\ETCDAL.csproj
+		SccProjectName0 = ETCDAL
+		SccLocalPath0 = ETCDAL
+		SccProjectUniqueName1 = ETCTestProject\\ETCTestProject.csproj
+		SccProjectName1 = ETCTestProject
+		SccLocalPath1 = ETCTestProject
+		SccProjectUniqueName2 = ETC\\ETC.csproj
+		SccProjectName2 = ETC
+		SccLocalPath2 = ETC
+		SccLocalPath3 = .
+	EndGlobalSection
+EndGlobal

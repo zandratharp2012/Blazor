@@ -1,0 +1,893 @@
+﻿@page "/TaskList/{RecordId:int}"
+@page "/TaskList/{RecordId:int}/{DisabledFlag}"
+@* @page "/CustomerListView/{customerId}" *@
+
+
+@using ETCDAL;
+@using ETCDAL.Models;
+@using ETC.TaskListService;
+@using System.Globalization
+@using Microsoft.JSInterop
+
+@inject IETCData _db;
+@inject IEmailSender _ms;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JsRuntime;
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+
+
+
+@if (projectHeader is null)
+{
+    <p>No data found</p>
+}
+else
+{
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="#">Home</a></li>
+            <li class="breadcrumb-item"><a href="@BreadcrumbMenu">List</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@projectHeader.MSO</li>
+            <li class="breadcrumb-item"><a href="@($"/ProjectList?periodName={projectHeader.PeriodName}")">@projectHeader.PeriodName</a></li>
+
+        </ol>
+
+    </nav>
+
+    <div class="moving-banner" style="color:darkorange;font-size:22px;margin-left:20px;">
+        <p><span id="status-message"> <strong>@pstatusmessage</strong></span></p>
+    </div>
+
+    <div class="container container-sm" id="summarycontainer">
+
+        <div class="card summaryheader" style="border-radius: 15px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);">
+            <div class="card-header" id="projectsummarysection">
+                <h3 style="color: #0B8DBB;font-weight: 300;">PROJECT SUMMARY</h3>
+            </div>
+            <div class="container-fluid" id="summaryfieldscontainer">
+                <!-- First row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>ETC Period</strong></div>
+                    <div class="col-md-2"><label id="period-name" class="label-bubbly-sm">@projectHeader.PeriodName</label></div>
+                    <div class="col-md-2" ><strong>ETC Period Month</strong></div>
+                    <div class="col-md-2">
+                        <label id="period-month-name" class="label-bubbly-sm">@projectHeader.PeriodMonthName</label>
+                    </div>
+                    <div class="col-md-1" ><strong>EAC Revenue Budget</strong></div>
+                    <div class="col-md-2">
+                        <label  class="label-bubbly-sm">
+                            @if (SwapCurrency)
+                            {
+                                @String.Format("{0:N2}",projectHeader._EAC_REVENUE_BUDGET)
+                            }
+                            else
+                            {
+                                @String.Format("{0:C2}",projectHeader.EAC_REVENUE_BUDGET)
+                            }
+                        </label>
+                    </div>
+                </div>
+                <!-- Second row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>Status</strong></div>
+                    <div class="col-md-2"><label id="project-status" class="label-bubbly-sm">@projectHeader.Status</label></div>
+                    <div class="col-md-2" ><strong>Total Available Budget</strong></div>
+                    <div class="col-md-2">
+                        <label id ="" class="label-bubbly-sm">@String.Format("{0:C2}", projectHeader.Total_Avail_Budget)</label>
+                    </div>
+                    <div class="col-md-1" ><strong>EAC Cost Budget</strong></div>
+                    <div class="col-md-2">
+                        <label  class="label-bubbly-sm">
+                            @if (SwapCurrency)
+                            {
+                                @String.Format("{0:N2}",projectHeader._EAC_COST_BUDGET)
+                            }
+                            else
+                            {
+                                @String.Format("{0:C2}", projectHeader.EAC_COST_BUDGET)
+                            }
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Third row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>Project Name</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@projectHeader.PROJECT_NAME</label></div>
+
+                    <div class="col-md-2" ><strong>Total Estimated Cost</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@String.Format("{0:C2}", TotalValue)</label></div>
+
+                    <div class="col-md-1" ><strong>Margin%</strong></div>
+                    <div class="col-md-3"><label class="label-bubbly-sm">Orcl @projectHeader.MarginPercent % / Forecast @CalculatedMargin %</label></div>
+                </div>
+
+                <!-- Fourth row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>MSO</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@projectHeader.MSO</label></div>
+
+                    <div class="col-md-2" ><strong>Budget Update Needed</strong></div>
+                    <div class="col-md-2">
+                        <label class="label-bubbly-sm @((BudgetThreshold  < 0) ? "overorunderbudget-value" : "")">@String.Format("{0:C2}", BudgetThreshold)</label>
+                    </div>
+                    <div class="col-md-1"><strong>Conversion Rate Used</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm"> @projectHeader.CONVERSION_RATE (@projectHeader.CURRENCY_CODE)</label></div>
+                </div>
+                <!-- Fifth row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>Project Manager</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@projectHeader.ProjectManager</label></div>
+                    <div class="col-md-2"><strong>Project Completion Date</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@projectHeader.ProjectCompletionDateFormatted</label></div>
+                    <div class="col-md-1"><strong>Local Currency</strong></div>
+                    <div class="col-md-2"><label class="label-bubbly-sm">@SwapCurrency</label></div>
+                </div>
+
+                <!-- Sixth row -->
+                <div class="row row-padding">
+                    <div class="col-md-1"><strong>Planned Completion Date</strong></div>
+                    <div class="col-md-2">  <InputDate @bind-Value="PlannedCompletionDate" class="form-control"></InputDate>   
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input @bind="HideZeroRows" class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckChecked">
+                            <label class="form-check-label" for="flexSwitchCheckChecked">Hide rows with zero dollars</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            <input @bind="SwapCurrency" class="form-check-input" type="checkbox" role="switch" id="flexSwitchCurrency">
+                            <label class="form-check-label" for="flexSwitchCurrency">Convert Currency</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7th row -->
+                @if (!RecordLocked)
+                {
+                    <div class="row row-padding">
+                        <div class="col-md-2">
+                            <button type="submit" id="summarysearchbutton" class="btn btn-success" @onclick="@SaveSummaryData" style=" margin-top: 10px;">Save</button>
+                        </div>
+                    </div>
+                }
+
+                <div style="color:darkorange;font-size:12px;">
+                    <p><span> <strong>@PCDUpdateMessage</strong></span></p>
+                </div>
+            </div>
+
+        </div>
+        <p></p>
+
+    </div>
+
+
+
+
+
+
+
+
+    <div class="container container-sm" id="editfieldscontainer">
+        <div class="container-fluid" id="container">
+            @if (TaskLists is null)
+            {
+                <p><em>Loading...</em></p>
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="table table-striped table-bordered table-hover table-sm text-xsmall">
+                        <thead>
+                            <tr class="table-primary small">
+                                <th id="taskdtltablehdr"> Number  </th>
+                                <th id="taskdtltablehdr"> Name  </th>
+                                <th id="taskdtltablehdr"> Budgets Per Task  </th>
+                                <th id="taskdtltablehdr">ITD </th>
+                                <th id="taskdtltablehdr">QTD </th>
+                                <th id="taskdtltablehdr">Available Budget </th>
+                                <th id="taskdtltablehdr">3rd Party Vendor Cost </th>
+                                <th id="taskdtltablehdr">Unallocated Available Budget </th>
+                                <th id="taskdtltablehdr">Total Estimated Costs </th>
+                                <th id="taskdtltablehdr">Budget Remaining </th>
+
+
+                                @foreach (var PeriodName in PeriodList)
+                                {
+                                    <th id="th-scroll">@PeriodName </th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody id="results">
+
+                            @{
+                                // Initialize totals
+                                float totalBudgeted = 0;
+                                float totalITD = 0;
+                                float totalQTD = 0;
+                                float totalAvailable = 0;
+                                float totalVendor = 0;
+                                float totalUnallocated = 0;
+                                float totalEstimated = 0;
+                                float totalRemaining = 0;
+                            }
+
+                            @foreach (var task in TaskNumbers.Where(p => !HideZeroRows || p.ZeroRow == false))
+                            {
+                                var TaskSummary = TaskLists.Where(p => p.TaskNumber == task.TaskNumber).First();
+                                var TaskObjects = TaskLists
+                                .Where(p => p.TaskNumber == task.TaskNumber)
+                                .Where(p => !HideZeroRows || p.ZeroRow == false) // Conditionally filter out ZeroRows based on HideZeroRows
+                                .OrderBy(p => p.PeriodName)
+                                .ToList();
+
+                                // Accumulate totals with casting
+                                float budgeted = TaskSummary.SumBudgeted_Burdened_Cost.HasValue ? (float)TaskSummary.SumBudgeted_Burdened_Cost.Value : 0f;
+                                float itd = TaskSummary.ITDCost.HasValue ? (float)TaskSummary.ITDCost.Value : 0f;
+                                float qtd = TaskSummary.QTD.HasValue ? (float)TaskSummary.QTD.Value : 0f;
+                                float available = TaskSummary.AvailableBudget.HasValue ? (float)TaskSummary.AvailableBudget.Value : 0f;
+                                float vendor = TaskSummary.SumVendor_Cost.HasValue ? (float)TaskSummary.SumVendor_Cost.Value : 0f;
+                                float unallocated = TaskSummary.UnallocatedAvailBudget.HasValue ? (float)TaskSummary.UnallocatedAvailBudget.Value : 0f;
+                                float estimated = TaskSummary.TotalEstimatedCost.HasValue ? (float)TaskSummary.TotalEstimatedCost.Value : 0f;
+                                float remaining = TaskSummary.BudgetRemaining.HasValue ? (float)TaskSummary.BudgetRemaining.Value : 0f;
+
+                                totalBudgeted += budgeted;
+                                totalITD += itd;
+                                totalQTD += qtd;
+                                totalAvailable += available;
+                                totalVendor += vendor;
+                                totalUnallocated += unallocated;
+                                totalEstimated += estimated;
+                                totalRemaining += remaining;
+
+
+
+
+                                <tr class="small">
+                                    <td>@task.TaskNumber</td>
+                                    <td>@TaskSummary.TaskName</td>
+                                    @if (SwapCurrency)
+                                    {
+                                        <td> @String.Format("{0:N2}",(TaskSummary.SumBudgeted_Burdened_Cost * (float)projectHeader.CONVERSION_RATE)) </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.ITDCost * (float)projectHeader.CONVERSION_RATE)) </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.QTD * (float)projectHeader.CONVERSION_RATE)) </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.AvailableBudget * (float)projectHeader.CONVERSION_RATE))</td>
+                                        <td class="@(TaskSummary.SumVendor_Cost != 0 ? "text-danger fw-bold" : "")">
+                                            @String.Format("{0:N2}", (TaskSummary.SumVendor_Cost * (float)projectHeader.CONVERSION_RATE))
+                                        </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.UnallocatedAvailBudget * (float)projectHeader.CONVERSION_RATE)) </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.TotalEstimatedCost * (float)projectHeader.CONVERSION_RATE)) </td>
+                                        <td> @String.Format("{0:N2}",(TaskSummary.BudgetRemaining * (float)projectHeader.CONVERSION_RATE)) </td>
+
+                                    }
+                                    else
+                                    {
+                                        <td> @String.Format("{0:C2}", TaskSummary.SumBudgeted_Burdened_Cost)</td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.ITDCost) </td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.QTD) </td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.AvailableBudget)</td>
+                                        <td class="@(TaskSummary.SumVendor_Cost != 0 ? "text-danger fw-bold" : "")">
+                                            @String.Format("{0:C2}", TaskSummary.SumVendor_Cost)
+                                        </td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.UnallocatedAvailBudget)</td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.TotalEstimatedCost)</td>
+                                        <td> @String.Format("{0:C2}", TaskSummary.BudgetRemaining)</td>
+                                    }
+
+                                    @* @onblur="() => { UpdateTaskValue(Task); UpdateTotal(); }" *@
+                                    @foreach (var Task in TaskObjects)
+                                    {
+                                        <td>
+                                            <input type="text"
+                                                   id="inpValue' + @Task.PeriodName + '"
+                                                   size="4pt"
+                                                   @bind-value="@Task.PeriodValue"
+                                                   @onblur="() => { UpdateTaskValue(Task); UpdateTotal(); }"
+                                                   disabled="@IsDisabled"
+                                                   class="@(Task.PeriodValue < 0 ? "negative-value" : "")" />
+                                        </td>
+                                    }
+                                </tr>
+                            }
+
+
+                            <!-- Totals Row -->
+                            <tr class="table-secondary fw-bold text-dark text-uppercase fs-7">
+                                <td colspan="2">Totals</td>
+                                @if (SwapCurrency)
+                                {
+                                    <td>@String.Format("{0:N2}", totalBudgeted * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalITD * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalQTD * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalAvailable * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalVendor * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalUnallocated * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalEstimated * (float)projectHeader.CONVERSION_RATE)</td>
+                                    <td>@String.Format("{0:N2}", totalRemaining * (float)projectHeader.CONVERSION_RATE)</td>
+
+                                }
+                                else
+                                {
+                                    <td>@String.Format("{0:C2}", totalBudgeted)</td>
+                                    <td>@String.Format("{0:C2}", totalITD)</td>
+                                    <td>@String.Format("{0:C2}", totalQTD)</td>
+                                    <td>@String.Format("{0:C2}", totalAvailable)</td>
+                                    <td>@String.Format("{0:C2}", totalVendor)</td>
+                                    <td>@String.Format("{0:C2}", totalUnallocated)</td>
+                                    <td>@String.Format("{0:C2}", totalEstimated)</td>
+                                    <td>@String.Format("{0:C2}", totalRemaining)</td>
+                                }
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+
+
+        @if (!HideSubmitButtons)
+        {
+            <div style="margin-top:10px;margin-left:10px;">
+                <textarea wrap="hard" rows="4" cols="50" id="notes" type="text" @oninput="UpdateSubmitterNotes" placeholder="Enter notes here..." maxlength="255" />
+            </div>
+            <button type="submit" @onclick="@SaveData" class="btn btn-outline-success me-2 mb-2">Save</button>
+            <button type="submit" @onclick="@SubmitData" class="btn btn-outline-success mb-2">Submit</button>
+        }
+        @if (!HideApproveButtons)
+        {
+            <div style="margin-top:10px;margin-left:10px;">
+                <textarea wrap="hard" rows="4" cols="50" id="notes" type="text" @oninput="UpdateApproverNotes" placeholder="Enter approval/rejection notes here..." maxlength="255" />
+            </div>
+            <button type="submit" @onclick="@ApproveData" class="btn btn-outline-success" style="margin-top:10px;margin-left:10px;">Approve</button>
+            <button type="submit" @onclick="@RejectData" class="btn btn-outline-danger" style="margin-top:10px;margin-left:5px;">Reject</button>
+        }
+
+        @if (showSuccessAlert)
+        {
+            <div class="alert alert-secondary py-2" style="color: green;" role="alert">
+                @SuccessMessage
+            </div>
+        }
+
+        @if (showFailureAlert)
+        {
+            <div class="alert alert-warning py-2" style="color: red;" role="alert">
+                @FailureMessage
+            </div>
+        }
+
+        <div id="approvalcontainer" class="container container-sm">
+            <button class="btn" id="approvalsectionbtn" @onclick="ToggleCollapse">Approval History (click to expand or collapse)</button>
+            @if (!IsCollapsed)
+            {
+                <ApprovalCard RecordId="RecordId" ></ApprovalCard>
+                <ActivityCard RecordId="RecordId"  ></ActivityCard>
+                <QuestionCard RecordId="RecordId"></QuestionCard>
+            }
+        </div>
+
+
+
+
+    </div>
+}
+
+@code {
+
+    private string? ApproverNotes { get; set; }
+    private string? SubmitterNotes { get; set; }
+    [Parameter]
+    public int RecordId { get; set; }
+
+    [Parameter]
+    // Temporary flag to test making form read-only. Should be replaced with authentication
+    //public string Enabled { get; set; } = "True";
+    public string DisabledFlag { get; set; }
+    public bool IsDisabled = false;
+    private bool HideShowDatePicker { get; set; } = true;
+    private bool HideUpdateButton { get; set; } = false;
+    private bool HideApproveButtons { get; set; } = true;
+    private bool HideSubmitButtons { get; set; } = false;
+    private bool showSuccessAlert = false; // Set to true to show the alert
+    private bool showFailureAlert = false; // Set to true to show the alert
+    private List<ProjectHeaderModel> projectHeaders;
+    private ProjectHeaderModel projectHeader = new ProjectHeaderModel();
+    private List<ProjectHeaderModel> projectHeaderTotalAvail;
+    private List<PermissionModel> Permissions;
+    private List<TaskModel> TaskLists;
+    private List<ApprovalModel> ApprovalList;
+    private List<ManagerModel> Managers;
+    private List<string?> PeriodList = new List<string?>();
+    private List<TaskInfo> TaskNumbers = new List<TaskInfo>();
+    //private List<string?> TaskNumbers = new List<string?>();
+    private List<string?> UserList = new List<string?>();
+    private float? TotalValue = 0;
+    private ProjectHeaderModel TotalAvailBudget = new ProjectHeaderModel();
+    private float? BudgetThreshold = 0;
+    private string? ProjectName = "";
+    private string? BreadcrumbMenu = "ProjectList";
+    private bool IsSaving { get; set; }
+    private string? SuccessMessage = "";
+    private string? PCDUpdateMessage = "";
+    private string? FailureMessage = "";
+    private string? CurrentUser;
+    private bool Approver = false;
+    private bool ReadAll = false;
+    private bool Admin = false;
+    private bool isAdmin = false; // rename this
+    private bool IsCollapsed = false;
+    private bool HideZeroRows = true;
+    private bool SwapCurrency = false;
+    private decimal OrigMargin = 0;
+    private decimal CalculatedMargin = 0;
+    bool IsSaved = false;
+    private string? pstatusmessage = "";
+    private DateTime? PlannedCompletionDate { get; set; }
+
+    public class TaskInfo
+    {
+        public string? TaskNumber { get; set; }
+        public bool? ZeroRow { get; set; }
+    }
+    DateTime parsedDate;
+    private bool RecordLocked { get; set; } = false;
+    private List<UserRegionsModel> UserRegions;
+    private List<string?> RegionList = new List<string?>();
+    TaskListService taskListService = new TaskListService();
+    public bool IsModified { get; set; } = false;
+    private string userChoice = "";
+    protected override async Task OnInitializedAsync()
+    {
+        CultureInfo.CurrentCulture = new CultureInfo("en-US");
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUser = authState.User.Identity?.Name;
+        await _db.InsertLog(CurrentUser, "TaskList", "");
+        if (CurrentUser != null)
+        {
+            CurrentUser = CurrentUser.Replace(@"GNET\", "");
+            //CurrentUser = "JCuevas";
+            if (Permissions == null)
+            {
+
+                Permissions = await _db.GetPermissions(CurrentUser);
+                Approver = Permissions.Any(p => p.Permission == "Approver");
+                ReadAll = Permissions.Any(p => p.Permission == "ReadAll");
+                Admin = Permissions.Any(p => p.Permission == "Admin");
+            }
+        }
+
+        if (ApprovalList == null)
+        {
+            ApprovalList = await _db.GetApprovalList(RecordId);
+        }
+
+        if (projectHeaders == null)
+        {
+
+            Managers = await _db.GetManagerStructure(CurrentUser);
+            UserList = Managers
+                             .Select(p => p.employee)
+                             .Distinct()
+                             .ToList();
+
+            UserList.Add(CurrentUser);
+            if (taskListService.HasPermission(Permissions))
+            {
+                UserRegions = await _db.GetUserRegions(CurrentUser);
+                RegionList = UserRegions
+                                 .Select(p => p.Region)
+                                 .Distinct()
+                                 .ToList();
+
+                RegionList.Add(CurrentUser);
+            }
+
+
+        }
+
+        projectHeaders = await _db.GetProjectHeader(RecordId, taskListService.HasPermission(Permissions), ReadAll, UserList, RegionList, null);
+        if (projectHeaders != null)
+        {
+            projectHeader = projectHeaders.FirstOrDefault(p => p.RecordId == RecordId);
+            projectHeaderTotalAvail = await _db.GetTotalAvailableBudget(RecordId);
+            TotalAvailBudget = projectHeaderTotalAvail.FirstOrDefault(p => p.RecordId == RecordId);
+            OrigMargin = projectHeader.MarginPercent;
+            PlannedCompletionDate = projectHeader?.PlannedCompletionDate;
+            if (projectHeader != null)
+            {
+
+                if (projectHeader.PeriodStatus == "Closed")
+                {
+                    BreadcrumbMenu = "ProjectList";
+                    IsDisabled = true;
+                    HideApproveButtons = true;
+                    HideSubmitButtons = true;
+                    pstatusmessage = "ETC PERIOD: " + projectHeader.PeriodName + ".\n THIS PERIOD HAS BEEN CLOSED. FURTHER CHANGES ARE NOT PERMITTED.";
+                    HideUpdateButton = true;
+                    RecordLocked = true;
+                }
+
+                else if (taskListService.IsRecordLocked(projectHeader))
+                {
+
+                    BreadcrumbMenu = "ProjectList";
+                    IsDisabled = true;
+                    HideSubmitButtons = true;
+                    HideUpdateButton = true;
+                    RecordLocked = true;
+                    pstatusmessage = "THIS RECORD IS LOCKED. ETC HAS ALREADY BEEN SUBMITTED OR APPROVED";
+                    if (Approver)
+                    {
+                        HideApproveButtons = false;
+                        pstatusmessage = "";
+                    }
+
+                }
+            }
+
+        }
+
+
+
+        if (TaskLists == null)
+        {
+            TaskLists = await _db.GetTaskList(RecordId);
+            if (TaskLists != null)
+            {
+
+
+                foreach (var task in TaskLists)
+                {
+                    task.RecalculateZeroRow(); // Ensure ZeroRow is correctly set after data is loaded
+
+
+                }
+
+                // Get distinct list of Period Names and sort them
+                PeriodList = TaskLists
+                                     // .Select(p => p.PeriodName)
+                                     .Select(p => p.Period_MonthName)
+                                    .Distinct()
+                                     .OrderBy(num => num)
+                                    .ToList();
+                // Get distinct TaskNumbers and sort them
+
+                TaskNumbers = TaskLists
+              .Where(p => p.TaskNumber != null) // Exclude null TaskNumbers
+              .GroupBy(p => p.TaskNumber) // Group by TaskNumber
+              .Select(g => new TaskInfo // Create TaskInfo instances
+                  {
+                      TaskNumber = g.Key,
+                      ZeroRow = g.Any(x => x.ZeroRow == true) // Set to true if any ZeroRow in the group is true
+                  })
+              .OrderBy(x => x.TaskNumber) // Order by TaskNumber
+              .ToList(); // Convert to a list
+
+                TotalValue = TaskLists.Sum(p => p.PeriodValue);
+            }
+        }
+        UpdateTotal();
+    }
+
+    private void UpdateTotal()
+    {
+        TotalValue = TaskLists.Sum(p => p.PeriodValue);
+        foreach (TaskModel Tasks in TaskLists)
+        {
+            Tasks.TotalEstimatedCost = TaskLists.Where(p => p.TaskNumber == Tasks.TaskNumber).Sum(p => p.PeriodValue);
+            Tasks.BudgetRemaining = (Tasks.AvailableBudget - Tasks.TotalEstimatedCost);
+        }
+
+              if (projectHeader != null)
+        {
+            BudgetThreshold = projectHeader.Total_Avail_Budget - TotalValue;
+            CalculatedMargin = taskListService.CalculateMargin(projectHeader, Convert.ToDecimal(BudgetThreshold));
+        }
+
+        SuccessMessage = "";
+        FailureMessage = "";
+    }
+
+    private void UpdateApproverNotes(ChangeEventArgs e)
+    {
+        ApproverNotes = e.Value.ToString();
+    }
+
+    private void UpdateSubmitterNotes(ChangeEventArgs e)
+    {
+        SubmitterNotes = e.Value.ToString();
+    }
+
+    private async Task SaveData()
+    {
+        ToggleAlert("");
+        bool hasNegativeValue = false;
+        IsSaved = false;
+        foreach (var Task in TaskLists)
+        {
+            if (Task.PeriodValue < 0)
+            {
+                // Set the flag if a negative value is found
+                hasNegativeValue = true;
+                ToggleAlert("Failure");
+                FailureMessage = "UPDATE FAILED. Negative dollar values are not accepted. Please review entries.";
+                IsSaved = false;
+                break; // Exit the loop early
+            }
+
+        }
+
+        if (!hasNegativeValue)
+        {
+            // remove any text controls with null values
+            var filteredTasks = TaskLists.Where(task => task.PeriodValue >= 0);
+            ToggleAlert("Success");
+            foreach (var Task in filteredTasks)
+            {
+                SuccessMessage = "Saving...";
+                await _db.UpdateTaskDetailID(Task.PeriodValue, Task.TaskDetailId);
+
+            }
+            await _db.UpdateTotalCost(RecordId, TotalValue ?? 0.0f);
+
+            SuccessMessage = "UPDATE SUCCESSFUL. Your entries have been saved.";
+
+            IsSaved = true;
+
+
+        }
+        StateHasChanged();
+    }
+
+    private async Task SubmitData()
+    {
+        if (taskListService.IsRecordLocked(projectHeader))
+        {
+            ShowFailureAlert("THIS RECORD IS LOCKED. ETC HAS ALREADY BEEN SUBMITTED OR APPROVED");
+            return;
+        }
+
+        await SaveData();
+        if (!IsSaved)
+        {
+            ShowFailureAlert("SUBMISSION FAILED. Negative dollar values are not accepted. Please review entries.");
+            return;
+        }
+
+        var validationResult = await taskListService.ValidateSubmissionAsync(projectHeader, BudgetThreshold, CalculatedMargin, JsRuntime);
+        if (validationResult.IsConfirmed)
+        {
+            if (validationResult.SubmitToApproval)
+            {
+                await SubmitForApproval();
+            }
+            else
+            {
+                await SubmitToDW();
+            }
+        }
+        else
+        {
+            ShowSuccessAlert("SUBMISSION CANCELLED. Your entries have been saved.");
+        }
+
+            StateHasChanged();
+    }
+
+    private async Task ApproveData()
+    {
+
+
+        ApprovalList = await _db.GetApprovalList(RecordId);
+        bool AlreadyApproved = ApprovalList.Where(approval => string.Equals(approval.ApproverUserName, CurrentUser, StringComparison.OrdinalIgnoreCase))
+                                .All(approval => approval.Approved == 1);
+
+        if (AlreadyApproved)
+        {
+            ToggleAlert("Failure");
+            FailureMessage = "APPROVAL FAILED. You have already approved this ETC.";
+        }
+        else
+        {
+            await _db.UpdateApproval(RecordId, CurrentUser);
+            await _db.InsertActivityLog(RecordId.ToString(), "Request Approved by  " + CurrentUser, ApproverNotes);
+            // check if any of the Approvals are still outstanding
+            ApprovalList = await _db.GetApprovalList(RecordId);
+            bool allApproved = ApprovalList.All(approval => approval.Approved == 1);
+            if (allApproved)
+            {
+                projectHeader.Status = "Approved";
+                projectHeader.DateApproved = DateTime.UtcNow;
+                await _db.AddSubmission(RecordId, projectHeader.Total_Avail_Budget, TotalValue);
+            }
+            ToggleAlert("Success");
+            SuccessMessage = "Approval submitted.";
+            await _db.UpdateProjectHeader(projectHeader);
+        }
+        StateHasChanged();
+    }
+    private async Task RejectData()
+    {
+        projectHeader.Status = "Pending - Approval Rejected";
+        await _db.UpdateProjectHeader(projectHeader);
+        await _db.UpdateRejected(RecordId, CurrentUser);
+        await _db.InsertActivityLog(RecordId.ToString(), "Request Rejected by " + CurrentUser, ApproverNotes);
+        ToggleAlert("Success");
+        SuccessMessage = "Approval Rejected.";
+        StateHasChanged();
+    }
+
+    private void ToggleCollapse()
+    {
+        IsCollapsed = !IsCollapsed;
+    }
+
+    // private void OnSwitchChanged(ChangeEventArgs e)
+    // {
+    //     HideZeroRows = (bool)e.Value;
+    // }
+
+    // private void OnCurrencySwitchChanged(ChangeEventArgs e)
+    // {
+    //     SwapCurrency = (bool)e.Value;
+    // }
+
+    private void ToggleAlert(string alertType)
+    {
+        if (alertType == "Success")
+        {
+            showFailureAlert = false;
+            showSuccessAlert = true;
+        }
+        else if (alertType == "Failure")
+        {
+            showFailureAlert = true;
+            showSuccessAlert = false;
+        }
+        else
+        {
+            showFailureAlert = false;
+            showSuccessAlert = false;
+        }
+    }
+
+    private void ShowDatePicker()
+    {
+        HideShowDatePicker = false;
+    }
+    private void HideDatePicker()
+    {
+        HideShowDatePicker = true;
+    }
+
+    private void NavigateToQuestionPage(int? RecordId)
+    {
+        string uri = "Question/" + RecordId;
+        NavigationManager.NavigateTo(uri);
+    }
+
+    private async Task SubmitToDW()
+    {
+        projectHeader.Status = "Submitted";
+        await _db.UpdateProjectHeader(projectHeader);
+        await _db.InsertActivityLog(RecordId.ToString(), "Submitted to DW", SubmitterNotes);
+        await _db.AddSubmission(RecordId, BudgetThreshold, TotalValue);
+        ShowSuccessAlert("SUBMITTED. Your entries have been saved and submitted.");
+        if (projectHeader.isOver100K >= 1)
+        {
+            NavigateToQuestionPage(RecordId);
+        }
+
+
+    }
+
+
+
+
+
+    private async Task SubmitForApproval()
+    {
+
+        //getApprovers(Region)
+
+        string region = projectHeader.Region;
+        var approverMapping = new Dictionary<string, string[]>
+            {
+                { "NORTH AMERICA", new[] { "EBub", "SGehrer" } },
+                { "LATIN AMERICA", new[] { "SCortes", "SGehrer" } },
+                { "MIDDLE EAST", new[] { "okosile-palmer", "ARoy" } },
+                { "AFRICA", new[] { "okosile-palmer", "ARoy" } },
+                { "EUROPE", new[] { "okosile-palmer", "ARoy" } },
+                { "APAC", new[] { "jfuria", "ARoy" } }
+            };
+
+        string[] approverList = approverMapping.TryGetValue(region, out var approvers)
+                        ? approvers
+                        : Array.Empty<string>();
+
+        projectHeader.Status = "Approval Pending";
+        projectHeader.DateApprovalRequested = DateTime.UtcNow;
+
+        await _db.UpdateProjectHeader(projectHeader);
+        await _db.DeleteExistingApprovers(RecordId);
+        foreach (string approver in approverList)
+        {
+            await _db.AddApprover(RecordId, approver);
+            var userDetailsList = await _db.GetUserDetails(approver);
+            if (userDetailsList != null && userDetailsList.Count > 0)
+            {
+                // UserModel emailTo = userDetailsList[0];
+                // await _ms.SendEmailAsync(emailTo.Email, "ETC Approval Requested - " + projectHeader.MSO,
+                //     $"<html><body><table border='1px solid black' border-collapse='collapse'><tr><th>Project Name</th><th>MSO</th></tr>" +
+                //     $"<tr><td>{projectHeader.MSO}</td><td>{projectHeader.PROJECT_NAME}</td></tr></table></body></html>");
+            }
+        }
+
+        await _db.InsertActivityLog(RecordId.ToString(), $"Submitted for Approval by {CurrentUser}", SubmitterNotes);
+        ShowSuccessAlert("SUBMITTED FOR APPROVAL. Your entries have been saved and submitted for approval.");
+        // if (projectHeader.isOver100K == 2)
+        // {
+        NavigateToQuestionPage(RecordId);
+        //}
+    }
+
+
+    private async Task SaveSummaryData()
+    {
+        string formattedDate = PlannedCompletionDate?.ToString("MM-dd-yyyy") ?? "Null";
+        if (projectHeader.Status == "Approved" || projectHeader.Status == "Submitted")
+        {
+            PCDUpdateMessage = "THIS RECORD IS LOCKED. ETC HAS ALREADY BEEN SUBMITTED OR APPROVED";
+        }
+        else
+
+        {
+            PCDUpdateMessage = "Saving...";
+
+            try
+            {
+                await _db.UpdatePCDate(RecordId, PlannedCompletionDate);
+                PCDUpdateMessage = "Planned Completion Date Updated";
+                projectHeader.PlannedCompletionDate = PlannedCompletionDate;
+                HideShowDatePicker = true;
+                StateHasChanged();
+
+            }
+            catch (FormatException)
+            {
+                // Handle other formats or fallback to a default action
+                PCDUpdateMessage = "Error: Invalid date format.";
+            }
+        }
+
+
+    }
+
+   
+    private void ShowFailureAlert(string message)
+    {
+        ToggleAlert("Failure");
+        FailureMessage = message;
+    }
+
+    private void ShowSuccessAlert(string message)
+    {
+        ToggleAlert("Success");
+        SuccessMessage = message;
+    }
+
+    private void UpdateTaskValue(TaskModel task)
+    {
+        if (task.PeriodValue == null)
+        {
+            task.PeriodValue = 0;
+        }
+        task.IsModified = false;
+    }
+
+}
+

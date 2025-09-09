@@ -1,0 +1,23 @@
+﻿@using ETCDAL;
+@using ETCDAL.Models;
+@inject IETCData _db;
+
+<input @bind="UserInput" placeholder="Notes" />
+<button @onclick="SubmitText">Submit</button>
+@msg
+
+@code {
+    [Parameter]
+    public int RecordId { get; set; }
+
+    private string UserInput { get; set; }
+    private string msg = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+    }
+    private void SubmitText()
+    {
+        msg = UserInput + ", Note is submitted for record: " + RecordId;
+    }
+}

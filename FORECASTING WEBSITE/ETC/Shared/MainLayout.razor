@@ -1,0 +1,97 @@
+﻿@inherits LayoutComponentBase
+
+@inject NavigationManager NavigationManager;
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<style>
+    #navsidebarpanel {
+        background-color: #0D9DDA;
+        background-image: url("https://transparenttextures.com/patterns/shattered-dark.png");
+    }
+
+    #navtopbar {
+        background-color: #0D9DDA;
+        background-image: url("https://transparenttextures.com/patterns/shattered-dark.png");
+    }
+</style>
+
+
+<PageTitle>ETC DEV</PageTitle>
+
+<div class="page">
+    <div class="sidebar" id="navsidebarpanel" style="@IconMenuCssClass;">
+        <NavMenu ShowIconMenu="ToggleIconMenu" />
+    </div>
+
+    <main>
+        @* <div class="top-row" id="navtopbar">
+            <div class="user-info" style="text-align: center;">
+               @CurrentUser / @PageName
+            </div>
+        </div> *@
+
+        <article class="content px-4">
+            
+            @Body
+        </article>
+    </main>
+</div>
+
+
+@code {
+    private bool _iconMenuActive { get; set; }
+    private string? IconMenuCssClass => _iconMenuActive ? "width: 80px;" : null;
+    private string? CurrentUser;
+    private string PageName { get; set; } = "Home";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUser = authState.User.Identity?.Name;
+        if (CurrentUser != null)
+        {
+
+            CurrentUser = CurrentUser.Replace(@"GNET\", "");
+        }
+     
+        SetPageName();
+
+        // Subscribe to the LocationChanged event
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected void ToggleIconMenu(bool iconMenuActive)
+    {
+        _iconMenuActive = iconMenuActive;
+    }
+
+    private void SetPageName()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        if (uri.Segments.Length > 1)
+        {
+            PageName = uri.Segments.Last().Trim('/');
+        }
+        else
+        {
+            PageName = "Home";
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        SetPageName();
+        InvokeAsync(StateHasChanged); // Forces the UI to update when the page name changes
+    }
+
+    public void Dispose()
+    {
+        // Unsubscribe to avoid memory leaks
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+
+
+}

@@ -1,0 +1,167 @@
+﻿@using Xunit
+@using Bunit
+@using Moq
+@using ETCDAL
+@using ETCDAL.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Collections.Generic
+@using System.Threading.Tasks
+@inherits BunitContext
+
+@code {
+    private Mock<ETCDAL.IETCData> _dbMock;
+    private Mock<AuthenticationStateProvider> _authStateProviderMock;
+    private IRenderedComponent<ETC.Pages.Calculator> _calculator;
+
+
+    private void SetupAuthorization(string user)
+    {
+        var authContext = this.AddAuthorization();
+        authContext.SetAuthorized(user);
+    }
+
+
+    [Fact]
+    public void OnInitializedAsync_SetsCurrentUser()
+    {
+        // Arrange
+        _dbMock = new Mock<IETCData>();
+        _authStateProviderMock = new Mock<AuthenticationStateProvider>();
+
+        Services.AddSingleton(_dbMock.Object);
+        Services.AddSingleton(_authStateProviderMock.Object);
+
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "GNET\\TestUser")
+        }));
+        var authState = new AuthenticationState(user);
+        _authStateProviderMock.Setup(provider => provider.GetAuthenticationStateAsync())
+            .ReturnsAsync(authState);
+
+       
+
+        // Act
+        _calculator = Render<ETC.Pages.Calculator>();
+
+        // Assert
+        Assert.Equal("TestUser", _calculator.Instance.CurrentUser);
+    }
+
+    [Fact]
+    public async Task OnInitializedAsync_SetsEngineersList()
+    {
+        // Arrange
+        _dbMock = new Mock<IETCData>();
+        _authStateProviderMock = new Mock<AuthenticationStateProvider>();
+
+        Services.AddSingleton(_dbMock.Object);
+        Services.AddSingleton(_authStateProviderMock.Object);
+
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "GNET\\TestUser")
+        }));
+        var authState = new AuthenticationState(user);
+        _authStateProviderMock.Setup(provider => provider.GetAuthenticationStateAsync())
+            .ReturnsAsync(authState);
+
+        var engineers = new List<EngineersModel>
+        {
+            new EngineersModel { FY = "2024", EngineerType = "Senior", EngineerRate = 100 }
+        };
+        _dbMock.Setup(db => db.GetEngineerRates()).ReturnsAsync(engineers);
+
+        
+
+        // Act
+        _calculator = Render<ETC.Pages.Calculator>();
+
+        // Assert
+        Assert.Equal(engineers, _calculator.Instance.EngineersList);
+    }
+
+    [Fact]
+    public void CalculateLaborResults_ReturnsCorrectValue()
+    {
+        // Arrange
+        _dbMock = new Mock<IETCData>();
+        _authStateProviderMock = new Mock<AuthenticationStateProvider>();
+
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "GNET\\TestUser")
+        }));
+        var authState = new AuthenticationState(user);
+        _authStateProviderMock.Setup(provider => provider.GetAuthenticationStateAsync())
+            .ReturnsAsync(authState);
+
+        Services.AddSingleton(_dbMock.Object);
+        Services.AddSingleton(_authStateProviderMock.Object);
+
+        _calculator = Render<ETC.Pages.Calculator>();
+
+        int hours = 10;
+        float rate = 50;
+
+        // Act
+       var result = _calculator.Instance.CalculateLaborResults(hours, rate);
+
+        // Assert
+       Assert.Equal(500, result);
+    }
+
+    [Fact]
+    public void CalculatorRendersCorrectly()
+    {
+
+        // Arrange
+        SetupAuthorization("GNET\\TEST USER");
+
+        var mockETCData = new Mock<ETCDAL.IETCData>();
+        mockETCData.Setup(data => data.GetEngineerRates())
+                   .ReturnsAsync(new List<ETCDAL.Models.EngineersModel>
+                               {
+                        new ETCDAL.Models.EngineersModel {
+                           EngineerID = 1,
+                           EngineerType = "Project Manager",
+                           EngineerRate = 141.52f,
+                           FY = "FY25",
+                           StartDate = DateTime.Now,
+                           EndDate = DateTime.Now.AddMonths(1),
+                           Hours = 2,
+                           ExpenseReports = 0f,
+                           VendorReqs = 0f
+                        },
+                       new ETCDAL.Models.EngineersModel {
+                           EngineerID = 2,
+                           EngineerType = "Software Engineer",
+                           EngineerRate = 120.00f,
+                           FY = "FY25",
+                           StartDate = DateTime.Now,
+                           EndDate = DateTime.Now.AddMonths(1),
+                           Hours = 3,
+                           ExpenseReports = 0f,
+                           VendorReqs = 0f
+                       }
+                               });
+        Services.AddSingleton(mockETCData.Object);
+
+
+        // Act
+        var cut = Render<ETC.Pages.Calculator>();
+
+        // Assert
+        var headerContainer = cut.Find(".header-container");
+        headerContainer.MarkupMatches(@"
+            <div class=""header-container"">
+                <h1 style=""color: #0B8DBB;"" id=""hdrtitle"">LABOR COST CALCULATOR</h1>
+                <h4 style=""color: #0B8DBB;"" id=""hdruser"">GNET\TEST USER</h4>
+            </div>
+        ");
+
+        // Check that the table has exactly one row
+        var tableRows = cut.FindAll("tbody tr");
+        Assert.Equal(2, tableRows.Count);
+    }
+}

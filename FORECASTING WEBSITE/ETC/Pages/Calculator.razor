@@ -1,0 +1,109 @@
+﻿@page "/ETCcalculator"
+@using ETCDAL;
+@using ETCDAL.Models;
+@inject IETCData _db;
+@inject NavigationManager NavigationManager;
+@inject AuthenticationStateProvider GetAuthenticationStateAsync
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+@* 
+<div class="header-container">
+    <h1 id="hdrtitle">LABOR COST CALCULATOR</h1>
+</div> *@
+
+
+<div class="header-container">
+    <h1 style="color: #0B8DBB;" id="hdrtitle">LABOR COST CALCULATOR</h1>
+    <h4 style="color: #0B8DBB;" id="hdruser">GNET\@CurrentUser</h4>
+    @* <h4 id="hdruser2">@RecordCount</h4> *@
+</div>
+
+
+@if (EngineersList is null)
+        {
+            <p><em>Loading...</em></p>
+            <span class="spinner-border spinner-border-sm"  role="status" ></span>
+        }
+        else
+        {
+<div class="container-fluid" id="container" style="margin-top:15px;width:900px;">
+ <div class="table-container" id="table-container-scroll">
+            <table class="table table-striped table-bordered table-hover table-sm text-xsmall" id="table-scroll">
+                <thead>
+                    <tr class="table-primary small">
+                        <th>Fiscal Year</th>
+                        <th>Engineer</th>
+                        <th>Rate</th>
+                        <th>Hours</th>
+                        <th>Total Estimated Labor Cost</th>
+                        @* <th>Expense Reports</th>
+                        <th>Vendor Req's To Be Submitted</th> *@
+                       @*  <th>Total Estimated Costs To Complete By Task</th> *@
+                    </tr>
+                </thead>
+                <tbody id="results">
+
+                    @foreach (var Engineer in EngineersList)
+                    {
+                        <tr class="small">
+                            <td>@Engineer.FY</td>
+                            <td>@Engineer.EngineerType</td>
+                            <td>$ @Engineer.EngineerRate</td>
+                            <td>
+                                <input type="number" @bind="Engineer.Hours" placeholder="Hours" maxlength="255" min="0" />
+                            </td>
+                            <td>$ @CalculateLaborResults(Engineer.Hours, Engineer.EngineerRate)</td>
+
+                           @*  <td><input type="number" step="0.01" @bind="Engineer.ExpenseReports" placeholder="ExpenseReports" maxlength="255" min="0" /> </td>
+
+                            <td><input type="number" step="0.01" @bind="Engineer.VendorReqs" placeholder="VendorReqs" maxlength="255" min="0" /> </td>
+
+                            <td>$ @CalculateTotalCostsByTask(Engineer.Hours, Engineer.EngineerRate, Engineer.ExpenseReports, Engineer.VendorReqs)</td> *@
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+</div>
+}
+
+@code {
+            public List<EngineersModel> EngineersList;
+            private int Hours { get; set; }
+            private float LaborCost { get; set; }
+            private float ExpenseReports { get; set; }
+            private float VendorReqs { get; set; }
+            public string? CurrentUser;
+
+            protected override async Task OnInitializedAsync()
+            {
+                var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                CurrentUser = authState.User.Identity?.Name;
+
+
+                if (CurrentUser != null)
+                {
+                    CurrentUser = CurrentUser.Replace(@"GNET\", ""); 
+                }
+
+                EngineersList = await _db.GetEngineerRates();
+                
+
+            }
+
+
+            public double CalculateLaborResults(int Hours, float engineerRate)
+            {
+                double result = Hours * engineerRate;
+                return Math.Round(result, 2);
+
+            }
+            // private double CalculateTotalCostsByTask(int Hours, float engineerRate,float ExpenseReports, float VendorReqs)
+            // {
+            //     double laborCost = Hours * engineerRate;
+            //     double Total = laborCost + ExpenseReports + VendorReqs;
+            //     return Math.Round(Total, 2);
+
+            // }
+}

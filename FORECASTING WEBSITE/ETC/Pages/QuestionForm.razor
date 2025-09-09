@@ -1,0 +1,172 @@
+﻿@page "/Question/{RecordId:int}"
+
+@using ETCDAL;
+@using ETCDAL.Models;
+@using System.Globalization;
+@using Microsoft.JSInterop;
+
+@inject IETCData _db;
+@inject IEmailSender _ms;
+@inject NavigationManager NavigationManager;
+@inject IJSRuntime JsRuntime;
+@inject AuthenticationStateProvider AuthenticationStateProvider;
+
+<h3>Additional information required</h3>
+
+@if (QuestionList != null && QuestionList.Count > 0)
+{
+    <EditForm Model="@Answers" OnValidSubmit="HandleValidSubmit" class="needs-validation" novalidate>
+        @foreach (var question in QuestionList)
+        {
+            var questionIndex = QuestionList.IndexOf(question);
+            var yesId = $"yes-{questionIndex}";
+            var noId = $"no-{questionIndex}";
+
+            Answers[questionIndex].QuestionId = question.id;
+
+            <div class="mb-3">
+                <label class="form-label">@question.QuestionText</label>
+                @if (question.QuestionType == "Text")
+                {
+                    <InputTextArea @bind-Value="Answers[questionIndex].Answer" class="form-control" />
+                    <ValidationMessage For="()  =>Answers[questionIndex].Answer" class="text-danger" />
+                }
+
+                @if (question.QuestionType == "Boolean")
+                {
+                    <div class="form-check">
+                        <InputRadioGroup @bind-Value="Answers[questionIndex].Answer">
+                            <div class="form-check">
+                                <InputRadio Value="true" class="form-check-input" id="@yesId" />
+                                <label class="form-check-label" for="@yesId">Yes</label>
+                            </div>
+                            <div class="form-check">
+                                <InputRadio Value="false" class="form-check-input" id="@noId" />
+                                <label class="form-check-label" for="@noId">No</label>
+                            </div>
+                        </InputRadioGroup>
+                    </div>
+                }
+                @if (question.QuestionType == "Date")
+                {
+                    <InputDate @bind-Value="Answers[questionIndex].AnswerDate" class="form-control" />
+                }
+            </div>
+            <hr />
+        }
+        @if (showFailureAlert)
+        {
+        <div class="alert alert-secondary py-2" style="color: red;" role="alert">
+            @FailureMessage
+        </div>
+       
+        }
+        
+       
+        @if (showSuccessAlert)
+        {
+            <div class="alert alert-secondary py-2" style="color: green;" role="alert">
+                @SuccessMessage
+            </div>
+        }
+
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </EditForm>
+}
+else
+{
+    <p>Loading questions...</p>
+}
+
+@code {
+    [Parameter]
+    public int RecordId { get; set; }
+
+    private List<QuestionModel> QuestionList = new List<QuestionModel>();
+    private List<AnswerModel> Answers = new List<AnswerModel>();
+    private string? CurrentUser;
+    private bool showSuccessAlert = false; // Set to true to show the alert
+    private bool showFailureAlert = false; // Set to true to show the alert
+    private string? SuccessMessage = "";
+    private string? FailureMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            CurrentUser = authState.User.Identity?.Name;
+
+            // Fetch and order the questions by DisplayOrder
+            var questions = await _db.GetQuestions();
+            QuestionList = questions.OrderBy(q => q.DisplayOrder).ToList();
+
+            Answers = new List<AnswerModel>(QuestionList.Count);
+            for (int i = 0; i < QuestionList.Count; i++)
+            {
+                Answers.Add(new AnswerModel());
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"An error occurred: {ex.Message}");
+
+        }
+
+    }
+
+    private void HandleValidSubmit()
+    {
+
+        bool ValidSubmit = true;
+        ToggleAlert("Success");
+        foreach (AnswerModel answer in Answers)
+        {
+            if (answer.Answer == null)
+            {
+                ToggleAlert("Failure");
+                FailureMessage = "Please enter values for all questions";
+                ValidSubmit = false;
+                break;
+            }
+        }
+
+
+        if (ValidSubmit)
+        {
+            // delete any existing Answers for this record Id. Can remove this once we add an Edit function.
+
+            _db.ClearAnswers(RecordId);
+
+            foreach (AnswerModel answer in Answers)
+            {
+                answer.ETCHeaderId = RecordId;
+                _db.SaveAnswer(answer);
+            }
+            string uri = "TaskList/" + RecordId;
+            NavigationManager.NavigateTo(uri);
+        }
+
+    }
+
+    private void ToggleAlert(string alertType)
+    {
+        if (alertType == "Success")
+        {
+            showFailureAlert = false;
+            showSuccessAlert = true;
+        }
+        else if (alertType == "Failure")
+        {
+            showFailureAlert = true;
+            showSuccessAlert = false;
+        }
+        else
+        {
+            showFailureAlert = false;
+            showSuccessAlert = false;
+        }
+    }
+}

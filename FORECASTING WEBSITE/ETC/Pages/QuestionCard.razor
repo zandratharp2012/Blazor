@@ -1,0 +1,58 @@
+﻿@using ETCDAL;
+@using ETCDAL.Models;
+@inject IETCData _db;
+
+@inject NavigationManager NavigationManager;
+
+<button type="button" class="btn btn-primary" id="detailsbutton" style="color: white;" @onclick="@(() => NavigateToQuestionPage(RecordId))">Resubmit Questions</button>
+
+<table class="table table-striped table-bordered table-hover table-sm">
+    <thead>
+        <tr class="table-dark">
+            <th width="50px"> Question </th>
+            <th width="50px">Answer </th>
+           
+
+        </tr>
+    </thead>
+    <tbody id="results">
+        @if (AnswerList != null)
+        {
+            @foreach (var Answer in AnswerList)
+            {
+               
+
+                <tr>
+                    <td>@Answer.QuestionText</td>
+                    <td>@Answer.Answer</td>
+                   
+                </tr>
+            }
+        }
+
+
+    </tbody>
+
+</table>
+@code {
+    [Parameter]
+    public int RecordId { get; set; }
+
+    private List<QuestionAnswerDisplayModel> AnswerList;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (AnswerList == null)
+        {
+            AnswerList = await _db.GetAnswers(RecordId);
+        }
+    }
+
+
+    private void NavigateToQuestionPage(int? RecordId)
+    {
+        string uri = "Question/" + RecordId;
+        NavigationManager.NavigateTo(uri);
+    }
+}

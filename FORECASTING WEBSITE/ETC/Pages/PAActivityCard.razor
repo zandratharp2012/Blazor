@@ -1,0 +1,53 @@
+﻿@using ETCDAL;
+@using ETCDAL.Models;
+@inject IETCData _db;
+
+@if (ActLog is null)
+{
+    <p><em>Loading...</em></p>  <span class="spinner-border spinner-border-sm" role="status"></span>
+}
+else
+{
+
+    <table class="table table-striped table-bordered table-hover table-sm">
+        <thead>
+            <tr class="table-info">
+                <th width="300px">ETC Period </th>
+                <th width="50px"> Date  </th>
+                <th width="250px">Message  </th>
+                <th width="250px">Notes </th>     
+
+            </tr>
+        </thead>
+        <tbody id="results">
+            @if (ActLog != null)
+            {
+                @foreach (var log in ActLog)
+                {
+                    <tr class="small">
+                        <td>@log.PAPeriod</td>
+                        <td>@log.DateAdded</td>
+                        <td>@log.MessageText</td>
+                        <td>@log.Notes</td>
+                    </tr>
+                }
+            }
+
+        </tbody>
+
+    </table>
+}
+@code {
+    [Parameter]
+    public string PAPeriod { get; set; }
+
+    private List<ActivityLogModel> ActLog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ActLog == null)
+        {
+            ActLog = await _db.GetPAActivityLog(PAPeriod);
+        }
+    }
+}
